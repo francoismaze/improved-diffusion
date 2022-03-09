@@ -13,7 +13,7 @@ def model_and_diffusion_defaults():
     Defaults for image training.
     """
     return dict(
-        image_size=64,
+        image_size=(64,64),
         num_channels=128,
         num_res_blocks=2,
         num_heads=4,
@@ -96,11 +96,11 @@ def create_model(
     use_scale_shift_norm,
     dropout,
 ):
-    if image_size == 256:
+    if image_size[0] == 256:
         channel_mult = (1, 1, 2, 2, 4, 4)
-    elif image_size == 64:
+    elif image_size[1] == 64 or image_size[1] == 120:
         channel_mult = (1, 2, 3, 4)
-    elif image_size == 32:
+    elif image_size[2] == 32:
         channel_mult = (1, 2, 2, 2)
     else:
         raise ValueError(f"unsupported image size: {image_size}")
@@ -110,9 +110,9 @@ def create_model(
         attention_ds.append(image_size // int(res))
 
     return UNetModel(
-        in_channels=3,
+        in_channels=1,
         model_channels=num_channels,
-        out_channels=(3 if not learn_sigma else 6),
+        out_channels=(1 if not learn_sigma else 2), # Unsure
         num_res_blocks=num_res_blocks,
         attention_resolutions=tuple(attention_ds),
         dropout=dropout,
