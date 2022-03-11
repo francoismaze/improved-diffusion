@@ -26,17 +26,18 @@ def load_data(
     """
     if not data_dir:
         raise ValueError("unspecified data directory")
-    all_files = _list_image_files_recursively(data_dir)
+    all_images, all_constraints = _list_image_files_recursively(data_dir)
     classes = None
     if class_cond:
         # Assume classes are the first part of the filename,
         # before an underscore.
-        class_names = [bf.basename(path).split("_")[0] for path in all_files]
+        class_names = [bf.basename(path).split("_")[0] for path in all_images]
         sorted_classes = {x: i for i, x in enumerate(sorted(set(class_names)))}
         classes = [sorted_classes[x] for x in class_names]
     dataset = ImageDataset(
         image_size,
-        all_files,
+        all_images,
+        all_constraints,
         classes=classes,
         shard=MPI.COMM_WORLD.Get_rank(),
         num_shards=MPI.COMM_WORLD.Get_size(),
@@ -54,30 +55,36 @@ def load_data(
 
 
 def _list_image_files_recursively(data_dir):
-    results = []
+    images = []
+    constraints = []
     for entry in sorted(bf.listdir(data_dir)):
         full_path = bf.join(data_dir, entry)
         ext = entry.split(".")[-1]
         if "." in entry and ext.lower() in ["jpg", "jpeg", "png", "gif"]:
-            results.append(full_path)
+            images.append(full_path)
+        elif "." in entry and ext.lower() in ["npy"]:
+            constraints.append(full_path)
         elif bf.isdir(full_path):
-            results.extend(_list_image_files_recursively(full_path))
-    return results
+            images.extend(_list_image_files_recursively(full_path))
+            constraints.extend(_list_image_files_recursively(full_path))
+    return images, constraints
 
 
 class ImageDataset(Dataset):
-    def __init__(self, resolution, image_paths, classes=None, shard=0, num_shards=1):
+    def __init__(self, resolution, image_paths, constraint_paths, classes=None, shard=0, num_shards=1):
         super().__init__()
         self.resolution = resolution
         self.local_images = image_paths[shard:][::num_shards]
+        self.local_constraints = constraint_paths[shard:][::num_shards]
         self.local_classes = None if classes is None else classes[shard:][::num_shards]
 
     def __len__(self):
         return len(self.local_images)
 
     def __getitem__(self, idx):
-        path = self.local_images[idx]
-        with bf.BlobFile(path, "rb") as f:
+        image_path = self.local_images[idx]
+        constraint_path = self.local_constraints[idx]
+        with bf.BlobFile(image_path, "rb") as f:
             pil_image = Image.open(f)
             pil_image.load()
 
@@ -100,7 +107,11 @@ class ImageDataset(Dataset):
         arr = arr[crop_y : crop_y + self.resolution, crop_x : crop_x + self.resolution]
         arr = arr.astype(np.float32) / 127.5 - 1
 
+        constraints = np.load(constraint_path)
+        assert constraints.shape[0:2] == arr.shape[0:2], "The constraints do not fit the dimension of the image"
+        full_arr = np.concatenate((arr, constraints), axis = 2)
+
         out_dict = {}
         if self.local_classes is not None:
             out_dict["y"] = np.array(self.local_classes[idx], dtype=np.int64)
-        return np.transpose(arr, [2, 0, 1]), out_dict
+        return np.transpose(full_arr, [2, 0, 1]), out_dict

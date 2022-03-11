@@ -24,9 +24,9 @@ def main():
 
     logger.log("creating model and diffusion...")
     model, diffusion = create_model_and_diffusion(
-        **args_to_dict(args, model_and_diffusion_defaults().keys())
+        **args_to_dict(args, model_and_diffusion_defaults().keys()) # Create a model and a diffusion fitting the given arguments
     )
-    model.to(dist_util.dev())
+    model.to(dist_util.dev()) # Assignment of the model to the right device
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
 
     logger.log("creating data loader...")
@@ -66,17 +66,17 @@ def create_argparser():
         lr_anneal_steps=0,
         batch_size=1,
         microbatch=-1,  # -1 disables microbatches
-        ema_rate="0.9999",  # comma-separated list of EMA values
+        ema_rate="0.9999",  # comma-separated list of EMA values # Exponential Moving Average
         log_interval=10,
-        save_interval=10000,
+        save_interval=5000,
         resume_checkpoint="",
         use_fp16=False,
         fp16_scale_growth=1e-3,
     )
-    defaults.update(model_and_diffusion_defaults())
+    defaults.update(model_and_diffusion_defaults()) # Updates the parser with the default parameters from the diffusion model
     parser = argparse.ArgumentParser()
     add_dict_to_argparser(parser, defaults)
-    return parser
+    return parser # Returns an argument parser filled with default arguments
 
 
 if __name__ == "__main__":
