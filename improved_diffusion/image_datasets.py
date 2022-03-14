@@ -109,9 +109,9 @@ class ImageDataset(Dataset):
 
         constraints = np.load(constraint_path)
         assert constraints.shape[0:2] == arr.shape[0:2], "The constraints do not fit the dimension of the image"
-        full_arr = np.concatenate((arr, constraints), axis = 2)
+        #full_arr = np.concatenate((arr, constraints), axis = 2)
 
         out_dict = {}
         if self.local_classes is not None:
             out_dict["y"] = np.array(self.local_classes[idx], dtype=np.int64)
-        return np.transpose(full_arr, [2, 0, 1]).astype(np.float32), out_dict
+        return np.transpose(arr, [2, 0, 1]).astype(np.float32), np.transpose(constraints, [2, 0, 1]).astype(np.float32), out_dict
