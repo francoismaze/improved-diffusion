@@ -114,4 +114,4 @@ class ImageDataset(Dataset):
         out_dict = {}
         if self.local_classes is not None:
             out_dict["y"] = np.array(self.local_classes[idx], dtype=np.int64)
-        return np.transpose(full_arr, [2, 0, 1]), out_dict
+        return np.transpose(full_arr, [2, 0, 1]).astype(np.float32), out_dict
