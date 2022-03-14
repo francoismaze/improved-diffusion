@@ -1,6 +1,5 @@
 """
-Generate a large batch of image samples from a model and save them as a large
-numpy array. This can be used to produce samples for FID evaluation.
+Generate an image sample meeting the constraints passed as argument from a model and save them as a numpy array.
 """
 
 import argparse
@@ -36,22 +35,18 @@ def main():
     model.to(dist_util.dev())
     model.eval()
 
+    constraints = np.load(args.constraints_path) #Constraints have to be represented as a (5, 64, 64) array
     logger.log("sampling...")
     all_images = []
-    all_labels = []
     while len(all_images) * args.batch_size < args.num_samples:
         model_kwargs = {}
-        if args.class_cond:
-            classes = th.randint(
-                low=0, high=NUM_CLASSES, size=(args.batch_size,), device=dist_util.dev()
-            )
-            model_kwargs["y"] = classes
         sample_fn = (
             diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
         )
         sample = sample_fn(
             model,
             (args.batch_size, 3, args.image_size, args.image_size),
+            constraints,
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
         )
@@ -62,27 +57,16 @@ def main():
         gathered_samples = [th.zeros_like(sample) for _ in range(dist.get_world_size())]
         dist.all_gather(gathered_samples, sample)  # gather not supported with NCCL
         all_images.extend([sample.cpu().numpy() for sample in gathered_samples])
-        if args.class_cond:
-            gathered_labels = [
-                th.zeros_like(classes) for _ in range(dist.get_world_size())
-            ]
-            dist.all_gather(gathered_labels, classes)
-            all_labels.extend([labels.cpu().numpy() for labels in gathered_labels])
-        logger.log(f"created {len(all_images) * args.batch_size} samples")
+        
+        logger.log(f"created {len(all_images) * args.batch_size} sample(s)")
 
     arr = np.concatenate(all_images, axis=0)
     arr = arr[: args.num_samples]
-    if args.class_cond:
-        label_arr = np.concatenate(all_labels, axis=0)
-        label_arr = label_arr[: args.num_samples]
     if dist.get_rank() == 0:
         shape_str = "x".join([str(x) for x in arr.shape])
         out_path = os.path.join(logger.get_dir(), f"samples_{shape_str}.npz")
         logger.log(f"saving to {out_path}")
-        if args.class_cond:
-            np.savez(out_path, arr, label_arr)
-        else:
-            np.savez(out_path, arr)
+        np.savez(out_path, arr)
 
     dist.barrier()
     logger.log("sampling complete")
@@ -91,11 +75,11 @@ def main():
 def create_argparser():
     defaults = dict(
         clip_denoised=True,
-        num_samples=10000,
-        batch_size=16,
+        num_samples=1,
+        batch_size=1,
         use_ddim=False,
         model_path="",
-        
+        constraints_path=""
     )
     defaults.update(model_and_diffusion_defaults())
     parser = argparse.ArgumentParser()
