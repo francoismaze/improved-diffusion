@@ -110,7 +110,7 @@ def create_model(
         attention_ds.append(image_size // int(res))
 
     return UNetModel(
-        in_channels=3 + 5,
+        in_channels=3 + 3,
         model_channels=num_channels,
         out_channels=(3 if not learn_sigma else 6),
         num_res_blocks=num_res_blocks,
@@ -210,7 +210,7 @@ def sr_create_model(
     attention_ds = []
     for res in attention_resolutions.split(","):
         attention_ds.append(large_size // int(res))
-
+    print("Super res model being used !")
     return SuperResModel(
         in_channels=3,
         model_channels=num_channels,

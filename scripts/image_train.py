@@ -56,6 +56,11 @@ def main():
         lr_anneal_steps=args.lr_anneal_steps,
     ).run_loop()
 
+    #VISUALIZATION OF WEIGHTS
+    for m in model.modules():
+        if isinstance(m, nn.Conv2d):
+            print(m.weights.data)
+
 
 def create_argparser():
     defaults = dict(

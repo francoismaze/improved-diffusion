@@ -9,6 +9,7 @@ import numpy as np
 import torch as th
 import torch.distributed as dist
 
+from improved_diffusion.cons_input_datasets import load_data
 from improved_diffusion import dist_util, logger
 from improved_diffusion.script_util import (
     NUM_CLASSES,
@@ -21,7 +22,6 @@ from improved_diffusion.script_util import (
 
 def main():
     args = create_argparser().parse_args()
-
     dist_util.setup_dist()
     logger.configure()
 
@@ -34,8 +34,10 @@ def main():
     )
     model.to(dist_util.dev())
     model.eval()
+    data = load_data(
+        data_dir=args.constraints_path, #CAUTION : REQUIRES THE BATCH SIZE TO BE 1
+    )
 
-    constraints = np.load(args.constraints_path) #Constraints have to be represented as a (5, 64, 64) array
     logger.log("sampling...")
     all_images = []
     while len(all_images) * args.batch_size < args.num_samples:
@@ -43,14 +45,16 @@ def main():
         sample_fn = (
             diffusion.p_sample_loop if not args.use_ddim else diffusion.ddim_sample_loop
         )
+        input_cons = next(data).cuda()
         sample = sample_fn(
             model,
             (args.batch_size, 3, args.image_size, args.image_size),
-            constraints,
+            input_cons,
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
         )
-        sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
+        sample = (sample * 255).clamp(0, 255).to(th.uint8)
+        #sample = ((sample + 1) * 127.5).clamp(0, 255).to(th.uint8)
         sample = sample.permute(0, 2, 3, 1)
         sample = sample.contiguous()
 
@@ -75,7 +79,7 @@ def main():
 def create_argparser():
     defaults = dict(
         clip_denoised=True,
-        num_samples=1,
+        num_samples=18,
         batch_size=1,
         use_ddim=False,
         model_path="",

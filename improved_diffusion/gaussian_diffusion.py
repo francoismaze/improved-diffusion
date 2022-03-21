@@ -257,7 +257,7 @@ class GaussianDiffusion:
 
         B, C = x.shape[:2]
         assert t.shape == (B,)
-        full_arr = np.concatenate((x, cons), axis = 1)
+        full_arr = th.cat((x, cons), dim = 1)
         model_output = model(full_arr, self._scale_timesteps(t), **model_kwargs)
 
         if self.model_var_type in [ModelVarType.LEARNED, ModelVarType.LEARNED_RANGE]:
@@ -684,7 +684,7 @@ class GaussianDiffusion:
         output = th.where((t == 0), decoder_nll, kl)
         return {"output": output, "pred_xstart": out["pred_xstart"]}
 
-    def training_losses(self, model, x_start, t, model_kwargs=None, noise=None):
+    def training_losses(self, model, x_start, cons, t, model_kwargs=None, noise=None):
         """
         Compute training losses for a single timestep.
 
@@ -710,6 +710,7 @@ class GaussianDiffusion:
                 model=model,
                 x_start=x_start,
                 x_t=x_t,
+                cons=cons,
                 t=t,
                 clip_denoised=False,
                 model_kwargs=model_kwargs,
@@ -717,7 +718,8 @@ class GaussianDiffusion:
             if self.loss_type == LossType.RESCALED_KL:
                 terms["loss"] *= self.num_timesteps
         elif self.loss_type == LossType.MSE or self.loss_type == LossType.RESCALED_MSE:
-            model_output = model(x_t, self._scale_timesteps(t), **model_kwargs)
+            full_arr = th.cat((x_t, cons), dim = 1)
+            model_output = model(full_arr, self._scale_timesteps(t), **model_kwargs)
 
             if self.model_var_type in [
                 ModelVarType.LEARNED,
@@ -733,6 +735,7 @@ class GaussianDiffusion:
                     model=lambda *args, r=frozen_out: r,
                     x_start=x_start,
                     x_t=x_t,
+                    cons=cons,
                     t=t,
                     clip_denoised=False,
                 )["output"]
