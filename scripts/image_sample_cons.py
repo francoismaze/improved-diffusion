@@ -48,7 +48,7 @@ def main():
         input_cons = next(data).cuda()
         sample = sample_fn(
             model,
-            (args.batch_size, 3, args.image_size, args.image_size),
+            (args.batch_size, 1, args.image_size, args.image_size),
             input_cons,
             clip_denoised=args.clip_denoised,
             model_kwargs=model_kwargs,
@@ -79,7 +79,7 @@ def main():
 def create_argparser():
     defaults = dict(
         clip_denoised=True,
-        num_samples=18,
+        num_samples=10,
         batch_size=1,
         use_ddim=False,
         model_path="",

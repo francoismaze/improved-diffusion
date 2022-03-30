@@ -56,7 +56,7 @@ def main():
         lr_anneal_steps=args.lr_anneal_steps,
     ).run_loop()
 
-    #VISUALIZATION OF WEIGHTS
+    #VISUALIZATION OF WEIGHTS - NEVER EXECUTED SINCE OUTSIDE OF THE LOOP
     for m in model.modules():
         if isinstance(m, nn.Conv2d):
             print(m.weights.data)

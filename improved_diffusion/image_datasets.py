@@ -106,7 +106,9 @@ class ImageDataset(Dataset):
         crop_x = (arr.shape[1] - self.resolution) // 2
         arr = arr[crop_y : crop_y + self.resolution, crop_x : crop_x + self.resolution]
         #arr = arr.astype(np.float32) / 127.5 - 1
+        arr = np.mean(arr, axis = 2)
         arr = arr.astype(np.float32) / 255
+        arr = arr.reshape(self.resolution, self.resolution, 1)
 
         constraints = np.load(constraint_path)
         assert constraints.shape[0:2] == arr.shape[0:2], "The constraints do not fit the dimension of the image"
